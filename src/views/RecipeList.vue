@@ -11,7 +11,7 @@
       </p>
     </div>
 
-    <!-- Search + Filter -->
+    <!-- Search + View toggle -->
     <div class="flex flex-col sm:flex-row gap-3 mb-8">
       <div class="relative flex-1">
         <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#c0c0c0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -24,10 +24,22 @@
           class="input-field !pl-11"
         />
       </div>
-      <select v-model="filterCategory" class="input-field !w-auto min-w-[160px]">
-        <option value="">Tutte</option>
-        <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
-      </select>
+      <div class="flex rounded-lg border border-gray-200 p-1 bg-white">
+        <button
+          @click="viewMode = 'grid'"
+          class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+          :class="viewMode === 'grid' ? 'bg-[var(--color-dark)] text-white' : 'text-gray-500 hover:text-gray-700'"
+        >
+          Griglia
+        </button>
+        <button
+          @click="viewMode = 'category'"
+          class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+          :class="viewMode === 'category' ? 'bg-[var(--color-dark)] text-white' : 'text-gray-500 hover:text-gray-700'"
+        >
+          Categorie
+        </button>
+      </div>
     </div>
 
     <!-- Loading -->
@@ -53,8 +65,8 @@
       </RouterLink>
     </div>
 
-    <!-- Grid -->
-    <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+    <!-- Grid view -->
+    <div v-else-if="viewMode === 'grid'" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
       <RecipeCard
         v-for="(recipe, i) in filtered"
         :key="recipe.id"
@@ -63,6 +75,32 @@
         class="fade-in"
         @delete="confirmDelete"
       />
+    </div>
+
+    <!-- Category view -->
+    <div v-else class="space-y-10">
+      <div v-for="group in groupedByCategory" :key="group.category" class="fade-in">
+        <!-- Category header -->
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-xl bg-[var(--color-accent-light)] flex items-center justify-center">
+            <span class="text-lg">{{ getCategoryEmoji(group.category) }}</span>
+          </div>
+          <div>
+            <h2 class="text-lg font-bold text-[var(--color-dark)]">{{ group.category || 'Senza categoria' }}</h2>
+            <p class="text-xs text-[var(--color-muted)]">{{ group.recipes.length }} ricett{{ group.recipes.length === 1 ? 'a' : 'e' }}</p>
+          </div>
+        </div>
+
+        <!-- Category recipes -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <RecipeCard
+            v-for="recipe in group.recipes"
+            :key="recipe.id"
+            :recipe="recipe"
+            @delete="confirmDelete"
+          />
+        </div>
+      </div>
     </div>
 
     <!-- Delete modal -->
@@ -95,21 +133,17 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRecipesStore } from '@/stores/recipes'
 import { storeToRefs } from 'pinia'
 import RecipeCard from '@/components/RecipeCard.vue'
+import { CATEGORIES } from '@/data/defaults'
 
 const store = useRecipesStore()
 const { recipes, loading } = storeToRefs(store)
 
 const search = ref('')
-const filterCategory = ref('')
+const viewMode = ref('category')
 const deleteTarget = ref(null)
 
 onMounted(() => store.subscribeToRecipes())
 onUnmounted(() => store.unsubscribeFromRecipes())
-
-const categories = computed(() => {
-  const cats = recipes.value.map((r) => r.category).filter(Boolean)
-  return [...new Set(cats)].sort()
-})
 
 const filtered = computed(() => {
   let list = recipes.value
@@ -117,11 +151,49 @@ const filtered = computed(() => {
     const q = search.value.toLowerCase()
     list = list.filter((r) => r.name.toLowerCase().includes(q) || r.description?.toLowerCase().includes(q))
   }
-  if (filterCategory.value) {
-    list = list.filter((r) => r.category === filterCategory.value)
-  }
   return list
 })
+
+const groupedByCategory = computed(() => {
+  const groups = {}
+  
+  CATEGORIES.forEach(cat => {
+    groups[cat] = []
+  })
+  groups[''] = []
+  
+  filtered.value.forEach(recipe => {
+    const cat = recipe.category || ''
+    if (!groups[cat]) groups[cat] = []
+    groups[cat].push(recipe)
+  })
+  
+  return Object.entries(groups)
+    .filter(([_, recipes]) => recipes.length > 0)
+    .map(([category, recipes]) => ({ category, recipes }))
+})
+
+const CATEGORY_EMOJIS = {
+  'Torte': '🎂',
+  'Crostate': '🥧',
+  'Biscotti': '🍪',
+  'Paste frolle': '🥮',
+  'Paste sfoglie': '🥐',
+  'Brioche e lievitati': '🧁',
+  'Creme e farciture': '🍮',
+  'Mousse e bavaresi': '🧁',
+  'Cioccolateria': '🍫',
+  'Mignon': '🧁',
+  'Gelati e sorbetti': '🍨',
+  'Confetture e marmellate': '🍯',
+  'Glasse e decorazioni': '✨',
+  'Altro': '📦',
+  '': '📋',
+}
+
+function getCategoryEmoji(category) {
+  return CATEGORY_EMOJIS[category] || '📋'
+}
 
 function confirmDelete(recipe) { deleteTarget.value = recipe }
 

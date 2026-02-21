@@ -23,16 +23,35 @@
 
         <div>
           <label class="text-sm font-medium text-[var(--color-dark)] mb-1.5 block">Nome ricetta <span class="text-red-400">*</span></label>
-          <input v-model="form.name" type="text" required placeholder="es. Marmellata di fragole" class="input-field" />
+          <input v-model="form.name" type="text" required placeholder="es. Crostata di frutta" class="input-field" />
         </div>
 
         <div class="grid grid-cols-2 gap-4">
-          <div>
+          <!-- Category with autocomplete -->
+          <div class="relative">
             <label class="text-sm font-medium text-[var(--color-dark)] mb-1.5 block">Categoria</label>
-            <input v-model="form.category" type="text" placeholder="es. Conserve" list="categories-list" class="input-field" />
-            <datalist id="categories-list">
-              <option v-for="cat in existingCategories" :key="cat" :value="cat" />
-            </datalist>
+            <input
+              v-model="form.category"
+              type="text"
+              placeholder="Scrivi o seleziona..."
+              class="input-field"
+              @focus="showCategorySuggestions = true"
+              @blur="hideCategorySuggestionsDelayed"
+            />
+            <div
+              v-if="showCategorySuggestions && filteredCategories.length > 0"
+              class="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto"
+            >
+              <button
+                v-for="cat in filteredCategories"
+                :key="cat"
+                type="button"
+                class="w-full text-left px-3 py-2 text-sm hover:bg-[var(--color-accent-light)] transition-colors first:rounded-t-xl last:rounded-b-xl"
+                @mousedown.prevent="selectCategory(cat)"
+              >
+                {{ cat }}
+              </button>
+            </div>
           </div>
           <div>
             <label class="text-sm font-medium text-[var(--color-dark)] mb-1.5 block">Scadenza (giorni)</label>
@@ -82,13 +101,33 @@
 
             <!-- Fields -->
             <div class="flex-1 grid grid-cols-5 gap-2">
-              <input
-                v-model="ing.name"
-                type="text"
-                placeholder="Ingrediente"
-                required
-                class="col-span-5 sm:col-span-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors"
-              />
+              <!-- Ingredient name with autocomplete -->
+              <div class="col-span-5 sm:col-span-2 relative">
+                <input
+                  v-model="ing.name"
+                  type="text"
+                  placeholder="Ingrediente"
+                  required
+                  class="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors"
+                  @focus="activeIngredientIdx = idx"
+                  @blur="hideIngredientSuggestionsDelayed"
+                  @input="onIngredientInput(idx)"
+                />
+                <div
+                  v-if="activeIngredientIdx === idx && getIngredientSuggestions(ing.name).length > 0"
+                  class="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-40 overflow-y-auto"
+                >
+                  <button
+                    v-for="suggestion in getIngredientSuggestions(ing.name)"
+                    :key="suggestion"
+                    type="button"
+                    class="w-full text-left px-3 py-2 text-sm hover:bg-[var(--color-accent-light)] transition-colors first:rounded-t-xl last:rounded-b-xl"
+                    @mousedown.prevent="selectIngredient(idx, suggestion)"
+                  >
+                    {{ suggestion }}
+                  </button>
+                </div>
+              </div>
               <input
                 v-model.number="ing.quantity"
                 type="number"
@@ -102,7 +141,7 @@
                 v-model="ing.unit"
                 class="col-span-2 sm:col-span-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors"
               >
-                <option v-for="u in units" :key="u" :value="u">{{ u }}</option>
+                <option v-for="u in UNITS" :key="u" :value="u">{{ u }}</option>
               </select>
             </div>
 
@@ -133,6 +172,15 @@
           <label class="text-sm font-medium text-[var(--color-dark)] mb-1.5 block">Istruzioni</label>
           <textarea v-model="form.instructions" rows="5" placeholder="Descrivi i passaggi di preparazione..." class="input-field resize-y"></textarea>
         </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="card p-6 space-y-4">
+        <div class="text-xs font-semibold tracking-[0.1em] uppercase text-[var(--color-muted)]">Note</div>
+        <div>
+          <label class="text-sm font-medium text-[var(--color-dark)] mb-1.5 block">Note sulla ricetta</label>
+          <textarea v-model="form.notes" rows="3" placeholder="Appunti, varianti, suggerimenti..." class="input-field resize-y"></textarea>
+        </div>
         <div>
           <label class="text-sm font-medium text-[var(--color-dark)] mb-1.5 block">Note etichetta</label>
           <input v-model="form.labelNotes" type="text" placeholder="es. Conservare in luogo fresco e asciutto" class="input-field" />
@@ -158,16 +206,17 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useRecipesStore } from '@/stores/recipes'
-import { storeToRefs } from 'pinia'
+import { CATEGORIES, INGREDIENTS, UNITS } from '@/data/defaults'
 
 const route = useRoute()
 const router = useRouter()
 const store = useRecipesStore()
-const { recipes } = storeToRefs(store)
 
 const isEdit = computed(() => !!route.params.id)
 const saving = ref(false)
-const units = ['g', 'kg', 'ml', 'L', 'cucchiai', 'cucchiaini', 'pz', 'q.b.']
+
+const showCategorySuggestions = ref(false)
+const activeIngredientIdx = ref(-1)
 
 const form = ref({
   name: '',
@@ -177,13 +226,46 @@ const form = ref({
   mainIngredientIndex: 0,
   ingredients: [{ name: '', quantity: '', unit: 'g' }],
   instructions: '',
+  notes: '',
   labelNotes: '',
 })
 
-const existingCategories = computed(() => {
-  const cats = recipes.value.map((r) => r.category).filter(Boolean)
-  return [...new Set(cats)].sort()
+const filteredCategories = computed(() => {
+  const q = form.value.category.toLowerCase()
+  if (!q) return CATEGORIES
+  return CATEGORIES.filter(cat => cat.toLowerCase().includes(q))
 })
+
+function getIngredientSuggestions(query) {
+  if (!query || query.length < 2) return []
+  const q = query.toLowerCase()
+  return INGREDIENTS
+    .map(i => i.name)
+    .filter(name => name.toLowerCase().includes(q))
+    .slice(0, 8)
+}
+
+function selectCategory(cat) {
+  form.value.category = cat
+  showCategorySuggestions.value = false
+}
+
+function hideCategorySuggestionsDelayed() {
+  setTimeout(() => { showCategorySuggestions.value = false }, 150)
+}
+
+function onIngredientInput(idx) {
+  activeIngredientIdx.value = idx
+}
+
+function selectIngredient(idx, name) {
+  form.value.ingredients[idx].name = name
+  activeIngredientIdx.value = -1
+}
+
+function hideIngredientSuggestionsDelayed() {
+  setTimeout(() => { activeIngredientIdx.value = -1 }, 150)
+}
 
 onMounted(() => {
   if (isEdit.value) {
@@ -199,6 +281,7 @@ onMounted(() => {
           ? recipe.ingredients.map((i) => ({ ...i }))
           : [{ name: '', quantity: '', unit: 'g' }],
         instructions: recipe.instructions ?? '',
+        notes: recipe.notes ?? '',
         labelNotes: recipe.labelNotes ?? '',
       }
     }

@@ -100,6 +100,17 @@
       <p class="text-sm text-[var(--color-dark)] whitespace-pre-line leading-relaxed">{{ recipe.instructions }}</p>
     </div>
 
+    <!-- Notes -->
+    <div v-if="recipe.notes" class="card p-6 mb-6 bg-[var(--color-accent-light)]/30 border-[var(--color-accent)]/10">
+      <div class="text-xs font-semibold tracking-[0.1em] uppercase text-[#8b7355] mb-4 flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+        Note
+      </div>
+      <p class="text-sm text-[var(--color-dark)] whitespace-pre-line leading-relaxed">{{ recipe.notes }}</p>
+    </div>
+
     <!-- Print CTA -->
     <div class="card !bg-[var(--color-dark)] p-6 flex items-center justify-between gap-4">
       <div>
