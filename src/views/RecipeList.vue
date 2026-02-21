@@ -1,14 +1,27 @@
 <template>
   <div class="fade-in">
     <!-- Hero -->
-    <div class="mb-12">
-      <h1 class="text-4xl sm:text-5xl font-black tracking-tight text-[var(--color-dark)] leading-[1.1]">
-        Le tue<br />
-        <span class="text-[var(--color-accent)]">ricette.</span>
-      </h1>
-      <p class="text-[var(--color-muted)] mt-3 text-base">
-        {{ recipes.length }} ricett{{ recipes.length === 1 ? 'a' : 'e' }} nel tuo archivio
-      </p>
+    <div class="mb-12 flex items-start justify-between gap-4">
+      <div>
+        <h1 class="text-4xl sm:text-5xl font-black tracking-tight text-[var(--color-dark)] leading-[1.1]">
+          Le tue<br />
+          <span class="text-[var(--color-accent)]">ricette.</span>
+        </h1>
+        <p class="text-[var(--color-muted)] mt-3 text-base">
+          {{ recipes.length }} ricett{{ recipes.length === 1 ? 'a' : 'e' }} nel tuo archivio
+        </p>
+      </div>
+
+      <!-- New recipe button -->
+      <RouterLink 
+        to="/nuova" 
+        class="shrink-0 inline-flex items-center gap-2 px-5 py-3 bg-[var(--color-dark)] hover:bg-black text-white text-sm font-bold rounded-xl transition-all shadow-md hover:shadow-lg"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" d="M12 4v16m8-8H4" />
+        </svg>
+        Nuova ricetta
+      </RouterLink>
     </div>
 
     <!-- Search + View toggle + Category filter -->

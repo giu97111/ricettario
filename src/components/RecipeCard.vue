@@ -32,15 +32,20 @@
         </p>
       </RouterLink>
 
-      <!-- Footer -->
-      <div class="flex items-center justify-between mt-4 pt-3 border-t border-black/5">
+      <!-- Footer info -->
+      <div class="flex items-center justify-center mt-4 pt-3 border-t border-black/5">
         <span class="text-[0.6875rem] text-[var(--color-muted)] tracking-wide">
           {{ recipe.ingredients?.length ?? 0 }} ingredienti
         </span>
-        <RouterLink :to="`/ricetta/${recipe.id}`" class="text-[0.6875rem] font-semibold text-[var(--color-accent)] hover:text-[#a6854f] transition-colors tracking-wide uppercase">
-          Apri
-        </RouterLink>
       </div>
+
+      <!-- Open button -->
+      <RouterLink 
+        :to="`/ricetta/${recipe.id}`" 
+        class="mt-3 w-full py-3 bg-[var(--color-accent)] hover:bg-[#a6854f] text-white text-sm font-bold rounded-xl text-center transition-all shadow-sm hover:shadow-md"
+      >
+        Apri ricetta
+      </RouterLink>
     </div>
   </div>
 </template>

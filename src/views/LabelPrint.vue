@@ -1,19 +1,13 @@
 <template>
   <div class="fade-in">
-    <!-- Controls -->
-    <div class="print:hidden flex flex-col sm:flex-row gap-4 items-start justify-between mb-8">
+    <!-- Back button -->
+    <div class="print:hidden mb-6">
       <RouterLink to="/" class="btn-ghost">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
         Indietro
       </RouterLink>
-      <button @click="doPrint" class="btn-primary">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-        </svg>
-        Stampa
-      </button>
     </div>
 
     <!-- Settings -->
@@ -46,9 +40,19 @@
 
     <!-- Print Area -->
     <div v-else id="print-area">
-      <div class="print:hidden text-xs font-semibold tracking-[0.1em] uppercase text-[var(--color-muted)] mb-4">Anteprima</div>
+      <!-- Print button - large and centered -->
+      <div class="print:hidden flex justify-center mb-8">
+        <button @click="doPrint" class="px-12 py-4 bg-[var(--color-accent)] hover:bg-[#a6854f] text-white text-lg font-bold rounded-2xl transition-all shadow-lg hover:shadow-xl flex items-center gap-3">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+          </svg>
+          Stampa etichette
+        </button>
+      </div>
 
-      <div class="flex flex-wrap gap-5">
+      <div class="print:hidden text-xs font-semibold tracking-[0.1em] uppercase text-[var(--color-muted)] mb-4 text-center">Anteprima</div>
+
+      <div class="flex flex-wrap gap-5 justify-center">
         <div
           v-for="n in labelCount"
           :key="n"
@@ -139,15 +143,25 @@ const productionDate = ref(todayStr)
 const expiryDays = ref(365)
 const scaleFactor = ref(parseFloat(route.query.scale) || 1)
 
-const lotNumber = ref(
-  `LOT-${today.getFullYear()}${pad(today.getMonth() + 1)}${pad(today.getDate())}-001`
-)
+const lotNumber = ref('')
+
+function generateLotCode(recipeName) {
+  const code = recipeName
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 4)
+    .padEnd(4, 'X')
+  const dateStr = `${today.getFullYear()}${pad(today.getMonth() + 1)}${pad(today.getDate())}`
+  const timeStr = `${pad(today.getHours())}${pad(today.getMinutes())}`
+  return `LOT-${dateStr}-${timeStr}-${code}-001`
+}
 
 onMounted(() => {
   const r = store.getRecipeById(route.params.id)
   if (r) {
     recipe.value = r
     if (r.expiryDays) expiryDays.value = r.expiryDays
+    lotNumber.value = generateLotCode(r.name)
   }
 })
 

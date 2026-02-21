@@ -14,13 +14,6 @@
         </RouterLink>
 
         <div class="flex items-center gap-4">
-          <RouterLink to="/nuova" class="btn-primary">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-              <path stroke-linecap="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Nuova
-          </RouterLink>
-
           <!-- User menu -->
           <div class="relative" ref="menuRef">
             <button
