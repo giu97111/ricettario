@@ -11,7 +11,7 @@
       </p>
     </div>
 
-    <!-- Search + View toggle -->
+    <!-- Search + View toggle + Category filter -->
     <div class="flex flex-col sm:flex-row gap-3 mb-8">
       <div class="relative flex-1">
         <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#c0c0c0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -24,23 +24,75 @@
           class="input-field !pl-11"
         />
       </div>
-      <div class="flex rounded-lg border border-gray-200 p-1 bg-white">
-        <button
-          @click="viewMode = 'grid'"
-          class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
-          :class="viewMode === 'grid' ? 'bg-[var(--color-dark)] text-white' : 'text-gray-500 hover:text-gray-700'"
-        >
-          Griglia
-        </button>
-        <button
-          @click="viewMode = 'category'"
-          class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
-          :class="viewMode === 'category' ? 'bg-[var(--color-dark)] text-white' : 'text-gray-500 hover:text-gray-700'"
-        >
-          Categorie
-        </button>
+      
+      <div class="flex gap-2">
+        <!-- View toggle -->
+        <div class="flex rounded-lg border border-gray-200 p-1 bg-white">
+          <button
+            @click="viewMode = 'grid'"
+            class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+            :class="viewMode === 'grid' ? 'bg-[var(--color-dark)] text-white' : 'text-gray-500 hover:text-gray-700'"
+          >
+            Griglia
+          </button>
+          <button
+            @click="viewMode = 'category'"
+            class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+            :class="viewMode === 'category' ? 'bg-[var(--color-dark)] text-white' : 'text-gray-500 hover:text-gray-700'"
+          >
+            Categorie
+          </button>
+        </div>
+
+        <!-- Category dropdown -->
+        <div class="relative">
+          <button
+            @click="showCategoryDropdown = !showCategoryDropdown"
+            class="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium transition-colors hover:border-gray-300"
+            :class="filterCategory ? 'text-[var(--color-accent)] border-[var(--color-accent)]' : 'text-gray-600'"
+          >
+            <span>{{ filterCategory ? getCategoryEmoji(filterCategory) + ' ' + (filterCategory || 'Senza cat.') : 'Filtra' }}</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          <!-- Dropdown -->
+          <div
+            v-if="showCategoryDropdown"
+            class="absolute z-30 right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl py-2 max-h-80 overflow-y-auto"
+          >
+            <!-- Clear filter -->
+            <button
+              @click="filterCategory = ''; showCategoryDropdown = false"
+              class="w-full text-left px-4 py-2 text-sm transition-colors flex items-center gap-2"
+              :class="!filterCategory ? 'bg-[var(--color-accent-light)] text-[var(--color-accent)] font-medium' : 'text-gray-600 hover:bg-gray-50'"
+            >
+              <span class="w-5 text-center">✓</span>
+              Tutte le categorie
+            </button>
+            
+            <div class="border-t border-gray-100 my-1"></div>
+
+            <!-- Categories list -->
+            <button
+              v-for="cat in availableCategories"
+              :key="cat.name"
+              @click="filterCategory = cat.name; showCategoryDropdown = false"
+              class="w-full text-left px-4 py-2 text-sm transition-colors flex items-center gap-2"
+              :class="filterCategory === cat.name ? 'bg-[var(--color-accent-light)] text-[var(--color-accent)] font-medium' : 'text-gray-600 hover:bg-gray-50'"
+            >
+              <span class="w-5 text-center">{{ getCategoryEmoji(cat.name) }}</span>
+              <span class="flex-1">{{ cat.name || 'Senza categoria' }}</span>
+              <span class="text-xs text-gray-400">{{ cat.count }}</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
+
+    <!-- Click outside to close dropdown -->
+    <div v-if="showCategoryDropdown" class="fixed inset-0 z-20" @click="showCategoryDropdown = false"></div>
 
     <!-- Loading -->
     <div v-if="loading" class="flex justify-center py-24">
@@ -63,6 +115,9 @@
       <RouterLink v-if="recipes.length === 0" to="/nuova" class="btn-primary">
         Crea la prima ricetta
       </RouterLink>
+      <button v-else-if="filterCategory" @click="filterCategory = ''" class="btn-secondary">
+        Rimuovi filtro
+      </button>
     </div>
 
     <!-- Grid view -->
@@ -140,17 +195,41 @@ const { recipes, loading } = storeToRefs(store)
 
 const search = ref('')
 const viewMode = ref('category')
+const filterCategory = ref('')
+const showCategoryDropdown = ref(false)
 const deleteTarget = ref(null)
 
 onMounted(() => store.subscribeToRecipes())
 onUnmounted(() => store.unsubscribeFromRecipes())
 
+const availableCategories = computed(() => {
+  const counts = {}
+  recipes.value.forEach(r => {
+    const cat = r.category || ''
+    counts[cat] = (counts[cat] || 0) + 1
+  })
+  
+  return Object.entries(counts)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => {
+      if (a.name === '') return 1
+      if (b.name === '') return -1
+      return a.name.localeCompare(b.name)
+    })
+})
+
 const filtered = computed(() => {
   let list = recipes.value
+  
   if (search.value.trim()) {
     const q = search.value.toLowerCase()
     list = list.filter((r) => r.name.toLowerCase().includes(q) || r.description?.toLowerCase().includes(q))
   }
+  
+  if (filterCategory.value !== '') {
+    list = list.filter((r) => (r.category || '') === filterCategory.value)
+  }
+  
   return list
 })
 
