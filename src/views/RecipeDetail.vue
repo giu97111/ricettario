@@ -103,6 +103,25 @@
           </div>
         </div>
       </div>
+      <div
+        v-if="Object.keys(totalsByUnit).length"
+        class="mt-4 pt-3 border-t border-black/5 text-[0.8rem]"
+      >
+        <div class="space-y-0.5">
+          <div
+            v-for="(total, unit) in totalsByUnit"
+            :key="unit"
+            class="flex items-center justify-between text-sm"
+          >
+            <span class="text-xs font-semibold text-[var(--color-dark)]">
+              Totale {{ unit }}
+            </span>
+            <span class="font-bold text-[var(--color-dark)] tabular-nums">
+              {{ formatTotal(total, unit) }}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Instructions -->
@@ -165,6 +184,21 @@ const mainIngredient = computed(() => {
   return recipe.value.ingredients?.[recipe.value.mainIngredientIndex ?? 0] ?? null
 })
 
+const totalsByUnit = computed(() => {
+  const totals = {}
+  if (!recipe.value?.ingredients) return totals
+
+  for (const ing of recipe.value.ingredients) {
+    if (! ing.quantity || ing.unit === 'q.b.') continue
+    const unit = ing.unit || ''
+    const qty = Number(ing.quantity)
+    if (Number.isNaN(qty)) continue
+    totals[unit] = (totals[unit] || 0) + qty
+  }
+
+  return totals
+})
+
 const scaleFactor = computed(() => {
   if (!mainIngredient.value?.quantity) return 1
   return scaledMainQty.value / mainIngredient.value.quantity
@@ -174,5 +208,23 @@ function scaledQty(ing) {
   if (ing.unit === 'q.b.' || !ing.quantity) return ing.quantity || 'q.b.'
   if (scaleFactor.value === 1) return ing.quantity
   return +(ing.quantity * scaleFactor.value).toFixed(2)
+}
+
+function formatTotal(total, unit) {
+  if (unit === 'g') {
+    const kg = total / 1000
+    return `${total.toFixed(0)} g (${kg.toFixed(2)} kg)`
+  }
+  if (unit === 'kg') {
+    return `${total.toFixed(2)} kg`
+  }
+  if (unit === 'ml') {
+    const l = total / 1000
+    return `${total.toFixed(0)} ml (${l.toFixed(2)} L)`
+  }
+  if (unit === 'L' || unit === 'l') {
+    return `${total.toFixed(2)} L`
+  }
+  return `${total} ${unit}`
 }
 </script>
