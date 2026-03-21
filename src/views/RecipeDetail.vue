@@ -184,21 +184,6 @@ const mainIngredient = computed(() => {
   return recipe.value.ingredients?.[recipe.value.mainIngredientIndex ?? 0] ?? null
 })
 
-const totalsByUnit = computed(() => {
-  const totals = {}
-  if (!recipe.value?.ingredients) return totals
-
-  for (const ing of recipe.value.ingredients) {
-    if (! ing.quantity || ing.unit === 'q.b.') continue
-    const unit = ing.unit || ''
-    const qty = Number(ing.quantity)
-    if (Number.isNaN(qty)) continue
-    totals[unit] = (totals[unit] || 0) + qty
-  }
-
-  return totals
-})
-
 const scaleFactor = computed(() => {
   if (!mainIngredient.value?.quantity) return 1
   return scaledMainQty.value / mainIngredient.value.quantity
@@ -209,6 +194,23 @@ function scaledQty(ing) {
   if (scaleFactor.value === 1) return ing.quantity
   return +(ing.quantity * scaleFactor.value).toFixed(2)
 }
+
+const totalsByUnit = computed(() => {
+  const totals = {}
+  if (!recipe.value?.ingredients) return totals
+
+  for (const ing of recipe.value.ingredients) {
+    if (!ing.quantity || ing.unit === 'q.b.') continue
+    const unit = ing.unit || ''
+    const base = Number(ing.quantity)
+    if (Number.isNaN(base)) continue
+
+    const scaled = scaleFactor.value === 1 ? base : +(base * scaleFactor.value).toFixed(2)
+    totals[unit] = (totals[unit] || 0) + scaled
+  }
+
+  return totals
+})
 
 function formatTotal(total, unit) {
   if (unit === 'g') {

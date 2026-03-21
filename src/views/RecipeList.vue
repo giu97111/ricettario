@@ -12,16 +12,29 @@
         </p>
       </div>
 
-      <!-- New recipe button -->
-      <RouterLink 
-        to="/nuova" 
-        class="shrink-0 inline-flex items-center gap-2 px-5 py-3 bg-[var(--color-dark)] hover:bg-black text-white text-sm font-bold rounded-xl transition-all shadow-md hover:shadow-lg"
-      >
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-          <path stroke-linecap="round" d="M12 4v16m8-8H4" />
-        </svg>
-        Nuova ricetta
-      </RouterLink>
+      <div class="flex flex-col sm:flex-row gap-2 shrink-0">
+        <button
+          v-if="recipes.length > 0"
+          @click="openExportModal"
+          :disabled="exporting"
+          class="inline-flex items-center gap-2 px-4 py-3 border-2 border-[var(--color-accent)] text-[var(--color-accent)] hover:bg-[var(--color-accent-light)]/30 text-sm font-bold rounded-xl transition-all"
+        >
+          <svg v-if="!exporting" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span v-else class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
+          Esporta PDF
+        </button>
+        <RouterLink 
+          to="/nuova" 
+          class="inline-flex items-center gap-2 px-5 py-3 bg-[var(--color-dark)] hover:bg-black text-white text-sm font-bold rounded-xl transition-all shadow-md hover:shadow-lg"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Nuova ricetta
+        </RouterLink>
+      </div>
     </div>
 
     <!-- Search + View toggle + Category filter -->
@@ -171,6 +184,102 @@
       </div>
     </div>
 
+    <!-- Export PDF: scegli ricette -->
+    <Teleport to="body">
+      <transition name="modal">
+        <div
+          v-if="showExportModal"
+          class="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          @click.self="closeExportModal"
+        >
+          <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+          <div class="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[min(90vh,640px)] flex flex-col overflow-hidden">
+            <div class="p-6 pb-4 border-b border-black/5 shrink-0">
+              <h3 class="text-lg font-bold text-[var(--color-dark)] mb-1">Esporta in PDF</h3>
+              <p class="text-sm text-[var(--color-muted)]">
+                Cerca e seleziona le ricette da includere nel documento.
+              </p>
+              <div class="relative mt-4">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#c0c0c0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  v-model="exportSearch"
+                  type="text"
+                  placeholder="Cerca per nome, categoria, descrizione..."
+                  class="input-field !pl-10 !text-sm"
+                  @keydown.esc="closeExportModal"
+                />
+              </div>
+              <div class="flex flex-wrap gap-2 mt-3">
+                <button type="button" class="text-xs font-semibold text-[var(--color-accent)] hover:underline" @click="selectAllFiltered">
+                  Seleziona risultati
+                </button>
+                <span class="text-gray-300">|</span>
+                <button type="button" class="text-xs font-semibold text-gray-600 hover:underline" @click="deselectAllFiltered">
+                  Deseleziona risultati
+                </button>
+                <span class="text-gray-300">|</span>
+                <button type="button" class="text-xs font-semibold text-gray-600 hover:underline" @click="selectAllRecipes">
+                  Tutte
+                </button>
+                <span class="text-gray-300">|</span>
+                <button type="button" class="text-xs font-semibold text-gray-600 hover:underline" @click="deselectAllRecipes">
+                  Nessuna
+                </button>
+              </div>
+              <p class="text-xs text-[var(--color-muted)] mt-2">
+                <strong class="text-[var(--color-dark)]">{{ selectedCount }}</strong>
+                ricett{{ selectedCount === 1 ? 'a' : 'e' }} selezionat{{ selectedCount === 1 ? 'a' : 'e' }}
+                <span v-if="exportSearch.trim() && exportFilteredRecipes.length !== recipes.length" class="ml-1">
+                  ({{ exportFilteredRecipes.length }} in questa ricerca)
+                </span>
+              </p>
+            </div>
+
+            <div class="flex-1 overflow-y-auto px-6 py-3 min-h-0">
+              <ul v-if="exportFilteredRecipes.length" class="space-y-1">
+                <li v-for="r in exportFilteredRecipes" :key="r.id">
+                  <label
+                    class="flex items-start gap-3 p-3 rounded-xl border border-transparent hover:bg-[var(--color-accent-light)]/40 hover:border-[var(--color-accent)]/20 cursor-pointer transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="isExportSelected(r.id)"
+                      class="mt-0.5 w-4 h-4 rounded border-gray-300 text-[var(--color-accent)] focus:ring-[var(--color-accent)]"
+                      @change="toggleExportSelection(r.id)"
+                    />
+                    <span class="flex-1 min-w-0">
+                      <span class="font-semibold text-[var(--color-dark)] text-sm block truncate">{{ r.name }}</span>
+                      <span v-if="r.category" class="text-xs text-[var(--color-muted)]">{{ r.category }}</span>
+                    </span>
+                  </label>
+                </li>
+              </ul>
+              <p v-else class="text-sm text-center text-[var(--color-muted)] py-8">
+                Nessuna ricetta corrisponde alla ricerca. Modifica i termini o cancella il filtro.
+              </p>
+            </div>
+
+            <div class="p-6 pt-4 border-t border-black/5 flex gap-3 shrink-0 bg-[#fafaf8]">
+              <button type="button" class="btn-secondary flex-1 justify-center" @click="closeExportModal">
+                Annulla
+              </button>
+              <button
+                type="button"
+                class="flex-1 btn-primary justify-center"
+                :disabled="selectedCount === 0 || exporting"
+                @click="confirmExportPdf"
+              >
+                <span v-if="exporting" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block mr-2"></span>
+                Genera PDF ({{ selectedCount }})
+              </button>
+            </div>
+          </div>
+        </div>
+      </transition>
+    </Teleport>
+
     <!-- Delete modal -->
     <Teleport to="body">
       <transition name="modal">
@@ -202,6 +311,7 @@ import { useRecipesStore } from '@/stores/recipes'
 import { storeToRefs } from 'pinia'
 import RecipeCard from '@/components/RecipeCard.vue'
 import { CATEGORIES } from '@/data/defaults'
+import { exportRecipesToPdf, downloadPdf } from '@/utils/exportPdf'
 
 const store = useRecipesStore()
 const { recipes, loading } = storeToRefs(store)
@@ -211,6 +321,13 @@ const viewMode = ref('category')
 const filterCategory = ref('')
 const showCategoryDropdown = ref(false)
 const deleteTarget = ref(null)
+const exporting = ref(false)
+
+/** Modale export PDF */
+const showExportModal = ref(false)
+const exportSearch = ref('')
+/** ID ricette selezionate per l'export */
+const selectedExportIds = ref([])
 
 onMounted(() => store.subscribeToRecipes())
 onUnmounted(() => store.unsubscribeFromRecipes())
@@ -245,6 +362,20 @@ const filtered = computed(() => {
   
   return list
 })
+
+/** Ricette filtrate nel modale export (ricerca) */
+const exportFilteredRecipes = computed(() => {
+  const q = exportSearch.value.trim().toLowerCase()
+  if (!q) return recipes.value
+  return recipes.value.filter((r) => {
+    const name = (r.name || '').toLowerCase()
+    const cat = (r.category || '').toLowerCase()
+    const desc = (r.description || '').toLowerCase()
+    return name.includes(q) || cat.includes(q) || desc.includes(q)
+  })
+})
+
+const selectedCount = computed(() => selectedExportIds.value.length)
 
 const groupedByCategory = computed(() => {
   const groups = {}
@@ -288,6 +419,65 @@ function getCategoryEmoji(category) {
 }
 
 function confirmDelete(recipe) { deleteTarget.value = recipe }
+
+function openExportModal() {
+  if (recipes.value.length === 0) return
+  exportSearch.value = ''
+  selectedExportIds.value = recipes.value.map((r) => r.id)
+  showExportModal.value = true
+}
+
+function closeExportModal() {
+  showExportModal.value = false
+}
+
+function isExportSelected(id) {
+  return selectedExportIds.value.includes(id)
+}
+
+function toggleExportSelection(id) {
+  const i = selectedExportIds.value.indexOf(id)
+  if (i >= 0) selectedExportIds.value.splice(i, 1)
+  else selectedExportIds.value.push(id)
+}
+
+function selectAllFiltered() {
+  const set = new Set(selectedExportIds.value)
+  exportFilteredRecipes.value.forEach((r) => set.add(r.id))
+  selectedExportIds.value = [...set]
+}
+
+function deselectAllFiltered() {
+  const remove = new Set(exportFilteredRecipes.value.map((r) => r.id))
+  selectedExportIds.value = selectedExportIds.value.filter((id) => !remove.has(id))
+}
+
+function selectAllRecipes() {
+  selectedExportIds.value = recipes.value.map((r) => r.id)
+}
+
+function deselectAllRecipes() {
+  selectedExportIds.value = []
+}
+
+function confirmExportPdf() {
+  if (selectedExportIds.value.length === 0) return
+  const selectedSet = new Set(selectedExportIds.value)
+  const ordered = recipes.value.filter((r) => selectedSet.has(r.id))
+  if (ordered.length === 0) return
+
+  exporting.value = true
+  try {
+    const blob = exportRecipesToPdf(ordered)
+    const date = new Date().toISOString().slice(0, 10)
+    downloadPdf(blob, `ricettario-${date}.pdf`)
+    closeExportModal()
+  } catch (err) {
+    console.error('Errore export PDF:', err)
+  } finally {
+    exporting.value = false
+  }
+}
 
 async function doDelete() {
   if (!deleteTarget.value) return
