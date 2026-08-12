@@ -13,7 +13,15 @@
     <!-- Settings -->
     <div v-if="recipe" class="print:hidden card p-6 mb-8">
       <div class="text-xs font-semibold tracking-[0.1em] uppercase text-[var(--color-muted)] mb-5">Impostazioni etichetta</div>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-4">
+        <div>
+          <label class="text-xs font-medium text-[var(--color-muted)] mb-1.5 block">Formato etichetta</label>
+          <select v-model="labelSize" class="input-field !text-sm">
+            <option v-for="opt in labelSizeOptions" :key="opt.id" :value="opt.id">
+              {{ opt.label }}
+            </option>
+          </select>
+        </div>
         <div>
           <label class="text-xs font-medium text-[var(--color-muted)] mb-1.5 block">Data produzione</label>
           <input v-model="productionDate" type="date" class="input-field !text-sm" />
@@ -31,6 +39,12 @@
           <input v-model.number="labelCount" type="number" min="1" max="20" class="input-field !text-sm" />
         </div>
       </div>
+      <div class="rounded-xl bg-[var(--color-accent-light)] px-4 py-3 text-xs text-[#6b5a42] leading-relaxed">
+        <strong class="text-[var(--color-dark)]">Nel dialogo di stampa (Windows):</strong>
+        stampante Clabel, carta <strong>{{ activeSize.label }}</strong>, scala <strong>100%</strong>,
+        <strong>Bianco e nero</strong>, margini zero,
+        attiva <strong>«Grafica di sfondo»</strong> se l'etichetta esce bianca.
+      </div>
     </div>
 
     <!-- Loading -->
@@ -40,100 +54,65 @@
 
     <!-- Print Area -->
     <div v-else id="print-area">
-      <!-- Print button - large and centered -->
-      <div class="print:hidden flex justify-center mb-8">
-        <button @click="doPrint" class="px-12 py-4 bg-[var(--color-accent)] hover:bg-[#a6854f] text-white text-lg font-bold rounded-2xl transition-all shadow-lg hover:shadow-xl flex items-center gap-3">
+      <div class="print:hidden flex flex-wrap justify-center gap-4 mb-8">
+        <button
+          @click="doPrint"
+          :disabled="printing"
+          class="px-12 py-4 bg-[var(--color-accent)] hover:bg-[#a6854f] disabled:opacity-60 text-white text-lg font-bold rounded-2xl transition-all shadow-lg hover:shadow-xl flex items-center gap-3"
+        >
           <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
           </svg>
-          Stampa etichette
+          {{ printing ? 'Preparazione…' : 'Stampa etichette' }}
+        </button>
+        <button
+          @click="doDownload"
+          class="px-8 py-4 bg-white hover:bg-gray-50 text-[var(--color-dark)] text-lg font-bold rounded-2xl transition-all shadow border border-black/10 flex items-center gap-3"
+        >
+          Scarica PNG
         </button>
       </div>
 
-      <div class="print:hidden text-xs font-semibold tracking-[0.1em] uppercase text-[var(--color-muted)] mb-4 text-center">Anteprima</div>
+      <div class="print:hidden text-xs font-semibold tracking-[0.1em] uppercase text-[var(--color-muted)] mb-4 text-center">
+        Anteprima (identica alla stampa)
+      </div>
 
-      <div class="flex flex-wrap gap-5 justify-center">
-        <div
-          v-for="n in labelCount"
-          :key="n"
-          class="label-card bg-white border border-black/10 rounded-2xl w-80 overflow-hidden shadow-sm"
-          style="page-break-inside: avoid;"
-        >
-          <!-- Top bar -->
-          <div class="h-1 bg-gradient-to-r from-[var(--color-dark)] via-[var(--color-accent)] to-[var(--color-dark)]"></div>
-
-          <div class="p-5">
-            <!-- Brand -->
-            <div class="flex items-center justify-between mb-4">
-              <div class="text-[0.5625rem] font-bold tracking-[0.2em] uppercase text-[var(--color-muted)]">
-                Ricettario X CIP
-              </div>
-              <div class="text-[0.5625rem] font-medium text-[var(--color-muted)]">
-                Prodotto artigianale
-              </div>
-            </div>
-
-            <!-- Product name -->
-            <div class="mb-4 pb-4 border-b border-black/10">
-              <div class="text-xl font-black text-[var(--color-dark)] leading-tight tracking-tight">
-                {{ recipe.name }}
-              </div>
-              <div v-if="recipe.category" class="text-[0.625rem] font-semibold tracking-[0.1em] uppercase text-[var(--color-accent)] mt-1">
-                {{ recipe.category }}
-              </div>
-            </div>
-
-            <!-- Ingredients -->
-            <div class="mb-4">
-              <div class="text-[0.5625rem] font-bold tracking-[0.15em] uppercase text-[var(--color-muted)] mb-1.5">
-                Ingredienti
-              </div>
-              <div class="text-[0.75rem] text-[var(--color-dark)] leading-relaxed">
-                {{ ingredientsList }}
-              </div>
-            </div>
-
-            <!-- Notes -->
-            <div v-if="recipe.labelNotes" class="mb-4 text-[0.6875rem] text-[var(--color-muted)] italic">
-              {{ recipe.labelNotes }}
-            </div>
-
-            <!-- Details grid -->
-            <div class="border-t border-black/10 pt-3 grid grid-cols-2 gap-x-4 gap-y-2.5">
-              <div>
-                <div class="text-[0.5rem] font-bold tracking-[0.2em] uppercase text-[var(--color-muted)]">Lotto</div>
-                <div class="text-[0.75rem] font-bold font-mono text-[var(--color-dark)]">{{ lotWithSeq(n) }}</div>
-              </div>
-              <div>
-                <div class="text-[0.5rem] font-bold tracking-[0.2em] uppercase text-[var(--color-muted)]">Prodotto il</div>
-                <div class="text-[0.75rem] font-semibold text-[var(--color-dark)]">{{ formattedProductionDate }}</div>
-              </div>
-              <div>
-                <div class="text-[0.5rem] font-bold tracking-[0.2em] uppercase text-[var(--color-muted)]">Da consumarsi entro</div>
-                <div class="text-[0.75rem] font-semibold text-[var(--color-dark)]">{{ formattedExpiryDate }}</div>
-              </div>
-              <div v-if="scaleFactor && scaleFactor !== 1">
-                <div class="text-[0.5rem] font-bold tracking-[0.2em] uppercase text-[var(--color-muted)]">Scala</div>
-                <div class="text-[0.75rem] font-semibold text-[var(--color-dark)]">{{ scaleFactor }}x</div>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div class="label-preview-grid">
+        <img
+          v-for="(preview, index) in previewImages"
+          :key="index"
+          :src="preview"
+          :alt="`Etichetta ${index + 1}`"
+          class="label-preview-img"
+          :width="activeSize.w * 8"
+          :height="activeSize.h * 8"
+          :style="previewStyle"
+        />
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useRecipesStore } from '@/stores/recipes'
+import { renderLabelDataUrl, downloadLabelPng, openLabelPrintWindow } from '@/utils/labelCanvas'
 
 const route = useRoute()
 const store = useRecipesStore()
 
+const labelSizeOptions = [
+  { id: '40x30', label: '40 × 30 mm (rotolo in dotazione)', w: 40, h: 30 },
+  { id: '50x30', label: '50 × 30 mm (consigliato)', w: 50, h: 30 },
+  { id: '58x40', label: '58 × 40 mm (max CT221D)', w: 58, h: 40 },
+]
+
 const recipe = ref(null)
 const labelCount = ref(1)
+const labelSize = ref('50x30')
+const printing = ref(false)
+const previewImages = ref([])
 
 const today = new Date()
 const pad = (n) => String(n).padStart(2, '0')
@@ -142,8 +121,14 @@ const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(toda
 const productionDate = ref(todayStr)
 const expiryDays = ref(365)
 const scaleFactor = ref(parseFloat(route.query.scale) || 1)
-
 const lotNumber = ref('')
+
+const activeSize = computed(() => labelSizeOptions.find((o) => o.id === labelSize.value) || labelSizeOptions[0])
+
+const previewStyle = computed(() => ({
+  width: `min(100%, ${activeSize.value.w * 8}px)`,
+  aspectRatio: `${activeSize.value.w} / ${activeSize.value.h}`,
+}))
 
 function generateLotCode(recipeName) {
   const code = recipeName
@@ -163,6 +148,7 @@ onMounted(() => {
     if (r.expiryDays) expiryDays.value = r.expiryDays
     lotNumber.value = generateLotCode(r.name)
   }
+  refreshPreviews()
 })
 
 const formattedProductionDate = computed(() => {
@@ -187,10 +173,85 @@ const ingredientsList = computed(() => {
   return [...sorted, ...qb].map((i) => i.name).join(', ')
 })
 
-function lotWithSeq(n) {
-  const base = lotNumber.value.replace(/-\d+$/, '')
-  return `${base}-${String(n).padStart(3, '0')}`
+function shortLot(n) {
+  const code = (recipe.value?.name || 'XXXX')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 4)
+    .padEnd(4, 'X')
+  const [y, m, d] = (productionDate.value || todayStr).split('-')
+  const seq = String(n).padStart(3, '0')
+  return `${code}-${d}${m}${y.slice(2)}-${seq}`
 }
 
-function doPrint() { window.print() }
+function buildLabelImage(copyIndex) {
+  const { w, h } = activeSize.value
+  return renderLabelDataUrl({
+    wMm: w,
+    hMm: h,
+    name: recipe.value.name,
+    ingredients: ingredientsList.value,
+    notes: recipe.value.labelNotes || '',
+    lot: shortLot(copyIndex),
+    prod: formattedProductionDate.value,
+    scad: formattedExpiryDate.value,
+    scale: scaleFactor.value,
+  })
+}
+
+function refreshPreviews() {
+  if (!recipe.value) {
+    previewImages.value = []
+    return
+  }
+  previewImages.value = Array.from({ length: labelCount.value }, (_, i) => buildLabelImage(i + 1))
+}
+
+watch(
+  [recipe, labelCount, labelSize, productionDate, expiryDays, lotNumber, ingredientsList, formattedProductionDate, formattedExpiryDate, scaleFactor],
+  refreshPreviews,
+)
+
+function doPrint() {
+  if (!recipe.value || printing.value) return
+  printing.value = true
+
+  try {
+    const { w, h } = activeSize.value
+    const images = Array.from({ length: labelCount.value }, (_, i) => buildLabelImage(i + 1))
+    const printWindow = openLabelPrintWindow({ wMm: w, hMm: h, dataUrls: images })
+
+    if (!printWindow) {
+      alert('Abilita i popup per stampare, oppure riprova.')
+    }
+  } finally {
+    printing.value = false
+  }
+}
+
+function doDownload() {
+  if (!recipe.value || !previewImages.value.length) return
+  previewImages.value.forEach((url, i) => {
+    const name = (recipe.value.name || 'etichetta').replace(/[^a-z0-9]/gi, '-').toLowerCase()
+    downloadLabelPng(url, `${name}-${i + 1}.png`)
+  })
+}
 </script>
+
+<style scoped>
+.label-preview-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  justify-content: center;
+}
+
+.label-preview-img {
+  display: block;
+  border: 2px solid #000;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  background: #fff;
+  image-rendering: pixelated;
+}
+</style>
