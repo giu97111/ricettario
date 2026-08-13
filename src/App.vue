@@ -61,10 +61,10 @@
     </main>
 
     <!-- Footer -->
-    <footer v-if="isAuthenticated" class="print:hidden border-t border-black/5 py-8 mt-20">
-      <div class="max-w-5xl mx-auto px-6 flex items-center justify-between">
-        <span class="text-xs text-[var(--color-muted)]">Ricettario X CIP</span>
-        <span class="text-xs text-[var(--color-muted)]">Fatto con cura</span>
+    <footer class="print:hidden border-t border-black/5 py-8 mt-20">
+      <div class="max-w-5xl mx-auto px-6 flex flex-col items-center gap-1 text-center">
+        <span v-if="isAuthenticated" class="text-xs text-[var(--color-muted)]">Ricettario X CIP</span>
+        <span class="text-[0.6875rem] text-[var(--color-muted)]/80 tracking-wide">Powered by G&G</span>
       </div>
     </footer>
   </div>
