@@ -4,6 +4,7 @@ import RecipeList from '@/views/RecipeList.vue'
 import RecipeDetail from '@/views/RecipeDetail.vue'
 import RecipeForm from '@/views/RecipeForm.vue'
 import LabelPrint from '@/views/LabelPrint.vue'
+import LabelCreate from '@/views/LabelCreate.vue'
 import Login from '@/views/Login.vue'
 
 const routes = [
@@ -13,6 +14,7 @@ const routes = [
   { path: '/nuova', name: 'recipe-new', component: RecipeForm },
   { path: '/modifica/:id', name: 'recipe-edit', component: RecipeForm },
   { path: '/etichetta/:id', name: 'label-print', component: LabelPrint },
+  { path: '/etichetta-nuova', name: 'label-create', component: LabelCreate },
 ]
 
 const router = createRouter({

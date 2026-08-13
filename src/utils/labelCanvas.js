@@ -77,6 +77,12 @@ function wrapLines(ctx, text, maxWidth) {
   return lines
 }
 
+function hasValue(value) {
+  if (value == null) return false
+  const text = String(value).trim()
+  return text !== '' && text !== '-'
+}
+
 function drawField(ctx, { label, value, x, y, maxWidth, labelSize, valueSize, minValueSize, gapAfter }) {
   setFont(ctx, 600, labelSize)
   fillText(ctx, label, x, y)
@@ -114,7 +120,6 @@ export function renderLabelCanvas({
   ctx.textBaseline = 'top'
 
   const pad = Math.max(5, Math.round(Math.min(width, height) * 0.035))
-  const topOffset = Math.round(height * 0.12)
   const gapSm = Math.max(3, Math.round(height * 0.014))
   const gapMd = Math.max(4, Math.round(height * 0.022))
   const gapLg = Math.max(5, Math.round(height * 0.03))
@@ -129,74 +134,113 @@ export function renderLabelCanvas({
   const lotSize = Math.max(10, Math.round(height * (isSmall ? 0.05 : 0.055)))
   const ingSize = Math.max(10, Math.round(height * (isSmall ? 0.048 : 0.052)))
 
+  const productName = (name || '').trim().toUpperCase()
+  const showProd = hasValue(prod)
+  const showScad = hasValue(scad)
+  const showLot = hasValue(lot)
+  const showScale = scale && scale !== 1
+  const showIngredients = hasValue(ingredients)
+  const showNotes = hasValue(notes)
+  const metaCount = [showProd, showScad, showLot, showScale].filter(Boolean).length
+  const bottomCount = [showIngredients, showNotes].filter(Boolean).length
+  const onlyTitle = productName && metaCount === 0 && bottomCount === 0
+
+  if (onlyTitle) {
+    const maxH = height - pad * 2
+    const startSize = Math.round(Math.min(maxH * 0.55, contentW * 0.22))
+    const minSize = Math.max(12, Math.round(height * 0.075))
+    const fittedNameSize = fitFontSize(ctx, productName, contentW, startSize, minSize, 700)
+    setFont(ctx, 700, fittedNameSize)
+    const y = pad + Math.max(0, (maxH - fittedNameSize) / 2)
+    fillSemiBold(ctx, productName, pad, y)
+    return canvas
+  }
+
+  const titleBoost = metaCount === 0 && bottomCount > 0 ? 1.18 : 1
+  const topOffset = metaCount === 0 ? Math.round(height * 0.06) : Math.round(height * 0.12)
   let y = pad + topOffset
 
-  const productName = (name || '').toUpperCase()
-  const fittedNameSize = fitFontSize(ctx, productName, contentW, nameSize, minNameSize, 700)
-  setFont(ctx, 700, fittedNameSize)
-  fillSemiBold(ctx, productName, pad, y)
-  y += fittedNameSize + gapLg
+  if (productName) {
+    const boostedNameSize = Math.round(nameSize * titleBoost)
+    const boostedMinNameSize = Math.round(minNameSize * titleBoost)
+    const fittedNameSize = fitFontSize(ctx, productName, contentW, boostedNameSize, boostedMinNameSize, 700)
+    setFont(ctx, 700, fittedNameSize)
+    fillSemiBold(ctx, productName, pad, y)
+    y += fittedNameSize + gapLg
+  }
 
-  y = drawField(ctx, {
-    label: 'PRODOTTO IL',
-    value: prod || '-',
-    x: pad,
-    y,
-    maxWidth: contentW,
-    labelSize,
-    valueSize: dateSize,
-    minValueSize: minDateSize,
-    gapAfter: gapMd,
-  })
+  if (showProd) {
+    y = drawField(ctx, {
+      label: 'PRODOTTO IL',
+      value: prod,
+      x: pad,
+      y,
+      maxWidth: contentW,
+      labelSize,
+      valueSize: dateSize,
+      minValueSize: minDateSize,
+      gapAfter: gapMd,
+    })
+  }
 
-  y = drawField(ctx, {
-    label: 'SCADENZA',
-    value: scad || '-',
-    x: pad,
-    y,
-    maxWidth: contentW,
-    labelSize,
-    valueSize: Math.round(dateSize * 0.92),
-    minValueSize: minDateSize,
-    gapAfter: gapMd,
-  })
+  if (showScad) {
+    y = drawField(ctx, {
+      label: 'SCADENZA',
+      value: scad,
+      x: pad,
+      y,
+      maxWidth: contentW,
+      labelSize,
+      valueSize: Math.round(dateSize * 0.92),
+      minValueSize: minDateSize,
+      gapAfter: gapMd,
+    })
+  }
 
-  const lotText = `LOT ${lot || '-'}`
-  const fittedLotSize = fitFontSize(ctx, lotText, contentW, lotSize + 1, lotSize, 600)
-  setFont(ctx, 600, fittedLotSize)
-  fillText(ctx, lotText, pad, y)
-  y += fittedLotSize + gapLg
+  if (showLot) {
+    const lotText = lot.startsWith('LOT') ? lot : `LOT ${lot}`
+    const fittedLotSize = fitFontSize(ctx, lotText, contentW, lotSize + 1, lotSize, 600)
+    setFont(ctx, 600, fittedLotSize)
+    fillText(ctx, lotText, pad, y)
+    y += fittedLotSize + gapLg
+  }
 
-  if (scale && scale !== 1) {
+  if (showScale) {
     const scaleText = `SCALA ${scale}x`
     setFont(ctx, 600, lotSize)
     fillText(ctx, scaleText, pad, y)
     y += lotSize + gapMd
   }
 
-  ctx.strokeStyle = '#000000'
-  ctx.lineWidth = 1
-  ctx.beginPath()
-  ctx.moveTo(pad, y)
-  ctx.lineTo(width - pad, y)
-  ctx.stroke()
-  y += gapSm + 1
+  if (bottomCount > 0) {
+    ctx.strokeStyle = '#000000'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(pad, y)
+    ctx.lineTo(width - pad, y)
+    ctx.stroke()
+    y += gapSm + 1
+  }
 
   const remaining = height - pad - y
   const ingLineH = ingSize * 1.14
-  const maxIngLines = Math.max(1, Math.floor(remaining / ingLineH) - (notes ? 1 : 0))
+  const maxIngLines = showNotes
+    ? Math.max(1, Math.floor(remaining / ingLineH) - 1)
+    : Math.max(1, Math.floor(remaining / ingLineH))
 
-  setFont(ctx, 500, ingSize)
-  const ingLines = wrapLines(ctx, ingredients || '', contentW)
-  for (let i = 0; i < Math.min(maxIngLines, ingLines.length); i += 1) {
-    fillText(ctx, ingLines[i], pad, y)
-    y += ingLineH
-  }
-  if (ingLines.length > maxIngLines && maxIngLines > 0) {
-    fillText(ctx, `${ingLines[maxIngLines - 1].slice(0, -1)}…`, pad, y - ingLineH)
+  if (showIngredients) {
+    setFont(ctx, 500, ingSize)
+    const ingLines = wrapLines(ctx, ingredients, contentW)
+    for (let i = 0; i < Math.min(maxIngLines, ingLines.length); i += 1) {
+      fillText(ctx, ingLines[i], pad, y)
+      y += ingLineH
+    }
+    if (ingLines.length > maxIngLines && maxIngLines > 0) {
+      fillText(ctx, `${ingLines[maxIngLines - 1].slice(0, -1)}…`, pad, y - ingLineH)
+    }
   }
 
-  if (notes && y + ingLineH <= height - pad) {
+  if (showNotes && y + ingLineH <= height - pad) {
     setFont(ctx, 500, Math.max(9, ingSize - 1))
     const noteLine = wrapLines(ctx, notes, contentW)[0] || ''
     fillText(ctx, noteLine, pad, y)
