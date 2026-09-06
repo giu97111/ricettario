@@ -12,9 +12,24 @@
         </p>
       </div>
 
-      <div class="flex flex-col sm:flex-row gap-2 shrink-0">
+      <div class="flex flex-col sm:flex-row flex-wrap gap-2 shrink-0">
         <button
           v-if="recipes.length > 0"
+          type="button"
+          @click="downloadIngredientsPdf"
+          :disabled="exportingIngredients || !hasIngredientsToExport"
+          :title="!hasIngredientsToExport ? 'Nessuna ricetta con ingredienti' : ''"
+          class="inline-flex items-center gap-2 px-4 py-3 border-2 border-gray-200 text-[var(--color-dark)] hover:border-[var(--color-accent)]/50 hover:bg-[var(--color-accent-light)]/25 text-sm font-bold rounded-xl transition-all disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:border-gray-200"
+        >
+          <svg v-if="!exportingIngredients" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span v-else class="w-4 h-4 shrink-0 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
+          Ingredienti PDF
+        </button>
+        <button
+          v-if="recipes.length > 0"
+          type="button"
           @click="openExportModal"
           :disabled="exporting"
           class="inline-flex items-center gap-2 px-4 py-3 border-2 border-[var(--color-accent)] text-[var(--color-accent)] hover:bg-[var(--color-accent-light)]/30 text-sm font-bold rounded-xl transition-all"
@@ -321,6 +336,7 @@ import { storeToRefs } from 'pinia'
 import RecipeCard from '@/components/RecipeCard.vue'
 import { CATEGORIES } from '@/data/defaults'
 import { exportRecipesToPdf, downloadPdf } from '@/utils/exportPdf'
+import { exportIngredientsToPdf } from '@/utils/exportIngredientsPdf'
 
 const store = useRecipesStore()
 const { recipes, loading } = storeToRefs(store)
@@ -331,6 +347,7 @@ const filterCategory = ref('')
 const showCategoryDropdown = ref(false)
 const deleteTarget = ref(null)
 const exporting = ref(false)
+const exportingIngredients = ref(false)
 
 /** Modale export PDF */
 const showExportModal = ref(false)
@@ -386,6 +403,10 @@ const exportFilteredRecipes = computed(() => {
 
 const selectedCount = computed(() => selectedExportIds.value.length)
 
+const hasIngredientsToExport = computed(() =>
+  recipes.value.some((r) => r.ingredients?.some((i) => (i.name || '').trim()))
+)
+
 const groupedByCategory = computed(() => {
   const groups = {}
   
@@ -428,6 +449,20 @@ function getCategoryEmoji(category) {
 }
 
 function confirmDelete(recipe) { deleteTarget.value = recipe }
+
+function downloadIngredientsPdf() {
+  if (!recipes.value.length || !hasIngredientsToExport.value) return
+  exportingIngredients.value = true
+  try {
+    const blob = exportIngredientsToPdf(recipes.value)
+    const date = new Date().toISOString().slice(0, 10)
+    downloadPdf(blob, `ingredienti-ricettario-${date}.pdf`)
+  } catch (err) {
+    console.error('Errore export ingredienti PDF:', err)
+  } finally {
+    exportingIngredients.value = false
+  }
+}
 
 function openExportModal() {
   if (recipes.value.length === 0) return
